@@ -31,6 +31,7 @@ import qualified Day15
 import qualified Day16
 import qualified Day17
 import qualified Day18
+import qualified Day19
 
 solved =
   M.fromList
@@ -52,6 +53,7 @@ solved =
     , (16, Day16.solve)
     , (17, Day17.solve)
     , (18, Day18.solve)
+    , (19, Day19.solve)
     ]
 
 getSolution x = M.findWithDefault notImplemented x solved
