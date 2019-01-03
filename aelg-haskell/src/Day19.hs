@@ -12,6 +12,7 @@ import           Data.Bits
 import           Text.ParserCombinators.ReadP
 import qualified Parsing as P
 import qualified Utils as U
+import Debug.Trace
 
 data Instruction = Instruction Int Int Int Int deriving Show
 
@@ -37,13 +38,24 @@ parser = do
       c <- P.integerAnd (char '\n')
       return $ Instruction code a b c
 
-parse i = (P.run irchoose . head $ i, P.run parser . unlines . drop 1 $ i)
+test = [ "#ip 0"
+       , "seti 5 0 1"
+       , "seti 6 0 2"
+       , "addi 0 1 0"
+       , "addr 1 2 3"
+       , "setr 1 0 0"
+       , "seti 8 0 4"
+       , "seti 9 0 5"
+       ]
 
-updateReg 0 v [r0, r1, r2, r3] = [v, r1, r2, r3]
-updateReg 1 v [r0, r1, r2, r3] = [r0, v, r2, r3]
-updateReg 2 v [r0, r1, r2, r3] = [r0, r1, v, r3]
-updateReg 3 v [r0, r1, r2, r3] = [r0, r1, r2, v]
-updateReg 4 v [r0, r1, r2, r3] = [r0, r1, r2, v]
+parse test = (P.run irchoose . head $ test, P.run parser . unlines . drop 1 $ test)
+
+updateReg f n xs = (take (n) $! xs) ++ (f $! v) : (drop (n+1) $! xs)
+  where
+    v = xs !! n
+
+
+setReg v = updateReg (const v)
 
 getReg r i = i !! r
 
@@ -55,7 +67,7 @@ toInt op a b
   | op a b = 1
   | otherwise = 0
 
-runOp op instr@(Instruction _ _ _ c) reg = updateReg c (op instr reg) reg
+runOp op instr@(Instruction _ _ _ c) reg = setReg (op instr reg) c reg
 
 addr = string "addr " >> return 0
 addi = string "addi " >> return 1
@@ -93,13 +105,22 @@ operations =
   , ir (toInt (==))
   ]
 
+runStep reg instr@(Instruction opCode _ _ _) = runOp (operations !! opCode) instr $! reg
 
-runStep reg instr@(Instruction opCode _ _ _) = runOp (operations !! opCode) instr reg
+loadInstruction ir regs program
+  | ip < 0 = Nothing
+  | otherwise = listToMaybe $ drop ip program
+  where
+    ip = (regs !! ir)
+
+runProgram ir program (_,regs)
+  | isJust $! instr = (fromJust instr, updateReg (+1) ir $! runStep regs $! (fromJust $! instr))
+  | otherwise = (Instruction 0 0 0 0, regs)
+  where
+    instr = loadInstruction ir regs program
 
 --solve1 :: [String] -> String
-solve1 (ir, program) = show . runProgram $ program
- where
-    runProgram = foldl runStep [0,0,0,0,0]
+solve1 (ir, program) = unlines . map show . take 10000000 $ iterate' ((runProgram $! ir) $! program) (Instruction 0 0 0 0, [0,0,0,0,0,0])
 
 --solve2 :: [String] -> String
 solve2 = solve1
